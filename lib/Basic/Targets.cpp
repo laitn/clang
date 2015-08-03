@@ -6165,7 +6165,46 @@ public:
     NumAliases = 0;
   }
 };
-
+  class VanillaTargetInfo : public TargetInfo {
+  public:
+    VanillaTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
+      BigEndian = false;
+      DescriptionString = "e-m:e-p:32:32-i32:32-n32:32";
+      TLSSupported = false;
+    }
+    void getTargetDefines(const LangOptions &Opts,
+                          MacroBuilder &Builder) const override {
+      DefineStd(Builder, "vanilla", Opts);
+      Builder.defineMacro("__VANILLA__");
+    }
+    bool hasFeature(StringRef Feature) const override {
+      return Feature == "vanilla";
+    }
+    
+    void getTargetBuiltins(const Builtin::Info *&Records,
+                           unsigned &NumRecords) const override {}
+    const char *getClobbers() const override {
+      return "";
+    }
+    BuiltinVaListKind getBuiltinVaListKind() const override {
+      return TargetInfo::VoidPtrBuiltinVaList;
+    }
+    void getGCCRegNames(const char * const *&Names,
+                        unsigned &NumNames) const override {
+      Names = nullptr;
+      NumNames = 0;
+    }
+    bool validateAsmConstraint(const char *&Name,
+                               TargetInfo::ConstraintInfo &info) const override {
+      return true;
+    }
+    void getGCCRegAliases(const GCCRegAlias *&Aliases,
+                          unsigned &NumAliases) const override {
+      Aliases = nullptr;
+      NumAliases = 0;
+    }
+  };
+  
 class MipsTargetInfoBase : public TargetInfo {
   virtual void setDescriptionString() = 0;
 
@@ -7187,6 +7226,9 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
   case llvm::Triple::bpfeb:
   case llvm::Triple::bpfel:
     return new BPFTargetInfo(Triple);
+      
+  case llvm::Triple::vanilla:
+    return new VanillaTargetInfo(Triple);
 
   case llvm::Triple::msp430:
     return new MSP430TargetInfo(Triple);
