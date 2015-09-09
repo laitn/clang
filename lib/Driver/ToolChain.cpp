@@ -244,11 +244,13 @@ ObjCRuntime ToolChain::getDefaultObjCRuntime(bool isNonFragile) const {
 
 bool ToolChain::isThreadModelSupported(const StringRef Model) const {
   if (Model == "single") {
-    // FIXME: 'single' is only supported on ARM so far.
+    // FIXME: 'single' is only supported on ARM and WebAssembly so far.
     return Triple.getArch() == llvm::Triple::arm ||
            Triple.getArch() == llvm::Triple::armeb ||
            Triple.getArch() == llvm::Triple::thumb ||
-           Triple.getArch() == llvm::Triple::thumbeb;
+           Triple.getArch() == llvm::Triple::thumbeb ||
+           Triple.getArch() == llvm::Triple::wasm32 ||
+           Triple.getArch() == llvm::Triple::wasm64;
   } else if (Model == "posix")
     return true;
 
@@ -310,10 +312,11 @@ std::string ToolChain::ComputeLLVMTriple(const ArgList &Args,
       MCPU = A->getValue();
     if (const Arg *A = Args.getLastArg(options::OPT_march_EQ))
       MArch = A->getValue();
-    std::string CPU = Triple.isOSBinFormatMachO()
-      ? tools::arm::getARMCPUForMArch(MArch, Triple)
-      : tools::arm::getARMTargetCPU(MCPU, MArch, Triple);
-    StringRef Suffix = 
+    std::string CPU =
+        Triple.isOSBinFormatMachO()
+            ? tools::arm::getARMCPUForMArch(MArch, Triple).str()
+            : tools::arm::getARMTargetCPU(MCPU, MArch, Triple);
+    StringRef Suffix =
       tools::arm::getLLVMArchSuffixForARM(CPU,
                                           tools::arm::getARMArch(MArch, Triple));
     bool ThumbDefault = Suffix.startswith("v6m") || Suffix.startswith("v7m") ||
@@ -344,7 +347,7 @@ std::string ToolChain::ComputeLLVMTriple(const ArgList &Args,
   }
 }
 
-std::string ToolChain::ComputeEffectiveClangTriple(const ArgList &Args, 
+std::string ToolChain::ComputeEffectiveClangTriple(const ArgList &Args,
                                                    types::ID InputType) const {
   return ComputeLLVMTriple(Args, InputType);
 }
@@ -424,10 +427,9 @@ void ToolChain::addExternCSystemIncludeIfExists(const ArgList &DriverArgs,
 /*static*/ void ToolChain::addSystemIncludes(const ArgList &DriverArgs,
                                              ArgStringList &CC1Args,
                                              ArrayRef<StringRef> Paths) {
-  for (ArrayRef<StringRef>::iterator I = Paths.begin(), E = Paths.end();
-       I != E; ++I) {
+  for (StringRef Path : Paths) {
     CC1Args.push_back("-internal-isystem");
-    CC1Args.push_back(DriverArgs.MakeArgString(*I));
+    CC1Args.push_back(DriverArgs.MakeArgString(Path));
   }
 }
 
@@ -496,4 +498,3 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
   return (Undefined & ~Vptr & ~Function) | CFI | CFICastStrict |
          UnsignedIntegerOverflow | LocalBounds;
 }
-

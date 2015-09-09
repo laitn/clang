@@ -80,6 +80,8 @@ def m_hexagon_Features_Group  : OptionGroup<"<m hexagon features group>">, Group
 def m_arm_Features_Group  : OptionGroup<"<m arm features group>">, Group<m_Group>;
 def m_aarch64_Features_Group  : OptionGroup<"<m aarch64 features group>">, Group<m_Group>;
 def m_ppc_Features_Group  : OptionGroup<"<m ppc features group>">, Group<m_Group>;
+def m_wasm_Features_Group : OptionGroup<"<m wasm features group>">,
+                                        Group<m_Group>;
 def m_libc_Group          : OptionGroup<"<m libc group>">, Group<m_Group>;
 def u_Group               : OptionGroup<"<u group>">;
 
@@ -436,6 +438,9 @@ def fprofile_instr_use_EQ : Joined<["-"], "fprofile-instr-use=">,
 def fcoverage_mapping : Flag<["-"], "fcoverage-mapping">,
     Group<f_Group>, Flags<[CC1Option]>,
     HelpText<"Generate coverage mapping to enable code coverage analysis">;
+def fno_coverage_mapping : Flag<["-"], "fno-coverage-mapping">,
+    Group<f_Group>, Flags<[DriverOption]>,
+    HelpText<"Disable code coverage analysis">;
 def fprofile_generate : Flag<["-"], "fprofile-generate">,
     Alias<fprofile_instr_generate>;
 def fprofile_generate_EQ : Joined<["-"], "fprofile-generate=">,
@@ -446,6 +451,16 @@ def fprofile_use : Flag<["-"], "fprofile-use">, Group<f_Group>,
 def fprofile_use_EQ : Joined<["-"], "fprofile-use=">,
     Group<f_Group>, Flags<[DriverOption]>, MetaVarName<"<pathname>">,
     HelpText<"Use instrumentation data for profile-guided optimization. If pathname is a directory, it reads from <pathname>/default.profdata. Otherwise, it reads from file <pathname>.">;
+def fno_profile_instr_generate : Flag<["-"], "fno-profile-instr-generate">,
+    Group<f_Group>, Flags<[DriverOption]>,
+    HelpText<"Disable generation of profile instrumentation.">;
+def fno_profile_generate : Flag<["-"], "fno-profile-generate">,
+    Alias<fno_profile_instr_generate>;
+def fno_profile_instr_use : Flag<["-"], "fno-profile-instr-use">,
+    Group<f_Group>, Flags<[DriverOption]>,
+    HelpText<"Disable using instrumentation data for profile-guided optimization">;
+def fno_profile_use : Flag<["-"], "fno-profile-use">,
+    Alias<fno_profile_instr_use>;
 
 def fblocks : Flag<["-"], "fblocks">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Enable the 'blocks' language feature">;
@@ -482,6 +497,8 @@ def fcxx_modules : Flag <["-"], "fcxx-modules">, Group<f_Group>,
   Flags<[DriverOption]>;
 def fdebug_pass_arguments : Flag<["-"], "fdebug-pass-arguments">, Group<f_Group>;
 def fdebug_pass_structure : Flag<["-"], "fdebug-pass-structure">, Group<f_Group>;
+def fdepfile_entry : Joined<["-"], "fdepfile-entry=">,
+    Group<f_clang_Group>, Flags<[CC1Option]>;
 def fdiagnostics_fixit_info : Flag<["-"], "fdiagnostics-fixit-info">, Group<f_clang_Group>;
 def fdiagnostics_parseable_fixits : Flag<["-"], "fdiagnostics-parseable-fixits">, Group<f_clang_Group>,
     Flags<[CoreOption, CC1Option]>, HelpText<"Print fix-its in machine parseable form">;
@@ -541,7 +558,7 @@ def fno_signaling_math : Flag<["-"], "fno-signaling-math">, Group<f_Group>;
 def fsanitize_EQ : CommaJoined<["-"], "fsanitize=">, Group<f_clang_Group>,
                    Flags<[CC1Option, CoreOption]>, MetaVarName<"<check>">,
                    HelpText<"Turn on runtime checks for various forms of undefined "
-                            "or suspicious behavior. See user manual for available checks ">;
+                            "or suspicious behavior. See user manual for available checks">;
 def fno_sanitize_EQ : CommaJoined<["-"], "fno-sanitize=">, Group<f_clang_Group>,
                       Flags<[CoreOption]>;
 def fsanitize_blacklist : Joined<["-"], "fsanitize-blacklist=">,
@@ -1096,6 +1113,13 @@ def gdwarf_3 : Flag<["-"], "gdwarf-3">, Group<g_Group>,
   HelpText<"Generate source-level debug information with dwarf version 3">, Flags<[CC1Option,CC1AsOption]>;
 def gdwarf_4 : Flag<["-"], "gdwarf-4">, Group<g_Group>,
   HelpText<"Generate source-level debug information with dwarf version 4">, Flags<[CC1Option,CC1AsOption]>;
+def gcodeview : Flag<["-"], "gcodeview">,
+  HelpText<"Generate CodeView debug information">,
+  Flags<[CC1Option, CC1AsOption, CoreOption]>;
+// Equivalent to our default dwarf version. Forces usual dwarf emission when
+// CodeView is enabled.
+def gdwarf : Flag<["-"], "gdwarf">, Alias<gdwarf_4>, Flags<[CoreOption]>;
+
 def gfull : Flag<["-"], "gfull">, Group<g_Group>;
 def gused : Flag<["-"], "gused">, Group<g_Group>;
 def gstabs : Joined<["-"], "gstabs">, Group<g_Group>, Flags<[Unsupported]>;
@@ -1113,6 +1137,9 @@ def gno_column_info : Flag<["-"], "gno-column-info">, Group<g_flags_Group>;
 def gsplit_dwarf : Flag<["-"], "gsplit-dwarf">, Group<g_flags_Group>;
 def ggnu_pubnames : Flag<["-"], "ggnu-pubnames">, Group<g_flags_Group>;
 def gdwarf_aranges : Flag<["-"], "gdwarf-aranges">, Group<g_flags_Group>;
+def gmodules : Flag <["-"], "gmodules">, Group<f_Group>,
+  HelpText<"Generate debug info with external references to clang modules"
+           " or precompiled headers">;
 def headerpad__max__install__names : Joined<["-"], "headerpad_max_install_names">;
 def help : Flag<["-", "--"], "help">, Flags<[CC1Option,CC1AsOption]>,
   HelpText<"Display available options">;
@@ -1308,6 +1335,9 @@ def mno_fix_cortex_a53_835769 : Flag<["-"], "mno-fix-cortex-a53-835769">,
   HelpText<"Don't workaround Cortex-A53 erratum 835769 (AArch64 only)">;
 def ffixed_x18 : Flag<["-"], "ffixed-x18">, Group<m_aarch64_Features_Group>,
   HelpText<"Reserve the x18 register (AArch64 only)">;
+
+def msimd128 : Flag<["-"], "msimd128">, Group<m_wasm_Features_Group>;
+def mno_simd128 : Flag<["-"], "mno-simd128">, Group<m_wasm_Features_Group>;
 
 def mvsx : Flag<["-"], "mvsx">, Group<m_ppc_Features_Group>;
 def mno_vsx : Flag<["-"], "mno-vsx">, Group<m_ppc_Features_Group>;
