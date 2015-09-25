@@ -6252,7 +6252,7 @@ public:
   public:
     VanillaTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
       BigEndian = false;
-      DescriptionString = "e-m:e-p:32:32-i32:32-n32:32";
+      DataLayoutString = "e-m:e-p:32:32-i32:32-n32:32";
       TLSSupported = false;
     }
     void getTargetDefines(const LangOptions &Opts,
