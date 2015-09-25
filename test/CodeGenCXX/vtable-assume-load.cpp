@@ -9,6 +9,7 @@
 // RUN: FileCheck --check-prefix=CHECK6 --input-file=%t.ll %s
 // RUN: FileCheck --check-prefix=CHECK7 --input-file=%t.ll %s
 // RUN: FileCheck --check-prefix=CHECK8 --input-file=%t.ll %s
+// RUN: FileCheck --check-prefix=CHECK9 --input-file=%t.ll %s
 namespace test1 {
 
 struct A {
@@ -174,7 +175,6 @@ void test() {
 } // testMS
 
 namespace test6 {
-// CHECK6: @_ZTVN5test61AE = external
 struct A {
   A();
   virtual void foo();
@@ -183,10 +183,11 @@ struct A {
 struct B : A {
   B();
 };
-// Because A's vtable is external, it's safe to generate assumption loads.
+// FIXME: Because A's vtable is external, and no virtual functions are hidden,
+// it's safe to generate assumption loads.
 // CHECK6-LABEL: define void @_ZN5test61gEv()
 // CHECK6: call void @_ZN5test61AC1Ev(
-// CHECK6: call void @llvm.assume(
+// CHECK6-NOT: call void @llvm.assume(
 
 // We can't emit assumption loads for B, because if we would refer to vtable
 // it would refer to functions that will not be able to find (like implicit
@@ -243,7 +244,6 @@ struct C : A {
 };
 inline void C::bar() {}
 
-// CHECK8-DAG: @_ZTVN5test81DE = external unnamed_addr constant
 struct D : A {
   D();
   void foo();
@@ -275,8 +275,9 @@ void c() {
   c.bar();
 }
 
+// FIXME: We could generate assumption loads here.
 // CHECK8-LABEL: define void @_ZN5test81dEv()
-// CHECK8: call void @llvm.assume(
+// CHECK8-NOT: call void @llvm.assume(
 // CHECK8-LABEL: }
 void d() {
   D d;
@@ -291,3 +292,21 @@ void e() {
   e.bar();
 }
 }
+
+namespace test9 {
+
+struct S {
+  S();
+  __attribute__((visibility("hidden"))) virtual void doStuff();
+};
+
+// CHECK9-LABEL: define void @_ZN5test94testEv()
+// CHECK9-NOT: @llvm.assume(
+// CHECK9: }
+void test() {
+  S *s = new S();
+  s->doStuff();
+  delete s;
+}
+}
+

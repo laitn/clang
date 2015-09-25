@@ -1495,8 +1495,8 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
     FuncAttrs.addAttribute("stack-protector-buffer-size",
                            llvm::utostr(CodeGenOpts.SSPBufferSize));
 
-    if (!CodeGenOpts.StackRealignment)
-      FuncAttrs.addAttribute("no-realign-stack");
+    if (CodeGenOpts.StackRealignment)
+      FuncAttrs.addAttribute("stackrealign");
 
     // Add target-cpu and target-features attributes to functions. If
     // we have a decl for the function and it has a target attribute then
@@ -1587,7 +1587,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
 
   if (const auto *RefTy = RetTy->getAs<ReferenceType>()) {
     QualType PTy = RefTy->getPointeeType();
-    if (getCXXABI().isTypeInfoCalculable(PTy) && PTy->isConstantSizeType())
+    if (!PTy->isIncompleteType() && PTy->isConstantSizeType())
       RetAttrs.addDereferenceableAttr(getContext().getTypeSizeInChars(PTy)
                                         .getQuantity());
     else if (getContext().getTargetAddressSpace(PTy) == 0)
@@ -1699,7 +1699,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
 
     if (const auto *RefTy = ParamType->getAs<ReferenceType>()) {
       QualType PTy = RefTy->getPointeeType();
-      if (getCXXABI().isTypeInfoCalculable(PTy) && PTy->isConstantSizeType())
+      if (!PTy->isIncompleteType() && PTy->isConstantSizeType())
         Attrs.addDereferenceableAttr(getContext().getTypeSizeInChars(PTy)
                                        .getQuantity());
       else if (getContext().getTargetAddressSpace(PTy) == 0)
@@ -3594,6 +3594,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
 /* VarArg handling */
 
-Address CodeGenFunction::EmitVAArg(Address VAListAddr, QualType Ty) {
+Address CodeGenFunction::EmitVAArg(VAArgExpr *VE, Address &VAListAddr) {
+  VAListAddr = VE->isMicrosoftABI()
+                 ? EmitMSVAListRef(VE->getSubExpr())
+                 : EmitVAListRef(VE->getSubExpr());
+  QualType Ty = VE->getType();
+  if (VE->isMicrosoftABI())
+    return CGM.getTypes().getABIInfo().EmitMSVAArg(*this, VAListAddr, Ty);
   return CGM.getTypes().getABIInfo().EmitVAArg(*this, VAListAddr, Ty);
 }

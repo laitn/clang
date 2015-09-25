@@ -11,6 +11,7 @@
 // RUN: FileCheck --check-prefix=CHECK-TEST13 %s < %t.opt
 // RUN: FileCheck --check-prefix=CHECK-TEST14 %s < %t.opt
 // RUN: FileCheck --check-prefix=CHECK-TEST15 %s < %t.opt
+// RUN: FileCheck --check-prefix=CHECK-TEST16 %s < %t.opt
 
 #include <typeinfo>
 
@@ -362,6 +363,31 @@ struct D : B, C {
 void test() {
   D * d = new D;
   d->f();
+}
+}
+
+namespace Test16 {
+// S has virtual method that is hidden, because of it we can't
+// generate available_externally vtable for it.
+// CHECK-TEST16-DAG: @_ZTVN6Test161SE = external unnamed_addr constant
+// CHECK-TEST16-DAG: @_ZTVN6Test162S2E = available_externally
+
+struct S {
+  __attribute__((visibility("hidden"))) virtual void doStuff();
+};
+
+struct S2 {
+  virtual void doStuff();
+  __attribute__((visibility("hidden"))) void unused();
+
+};
+
+void test() {
+  S *s = new S;
+  s->doStuff();
+
+  S2 *s2 = new S2;
+  s2->doStuff();
 }
 }
 

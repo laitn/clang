@@ -2274,6 +2274,8 @@ def err_attribute_dll_not_extern : Error<
   "%q0 must have external linkage when declared %q1">;
 def err_attribute_dll_thread_local : Error<
   "%q0 cannot be thread local when declared %q1">;
+def err_attribute_dll_lambda : Error<
+  "lambda cannot be declared %0">;
 def warn_attribute_invalid_on_definition : Warning<
   "'%0' attribute cannot be specified on a definition">,
   InGroup<IgnoredAttributes>;
@@ -2374,6 +2376,9 @@ def err_cconv_varargs : Error<
   "variadic function cannot use %0 calling convention">;
 def warn_cconv_varargs : Warning<
   "%0 calling convention ignored on variadic function">,
+  InGroup<IgnoredAttributes>;
+def warn_cconv_structors : Warning<
+  "%0 calling convention ignored on constructor/destructor">,
   InGroup<IgnoredAttributes>;
 def err_regparm_mismatch : Error<"function declared with regparm(%0) "
   "attribute was previously declared "
@@ -4314,20 +4319,22 @@ def err_bitfield_has_negative_width : Error<
 def err_anon_bitfield_has_negative_width : Error<
   "anonymous bit-field has negative width (%0)">;
 def err_bitfield_has_zero_width : Error<"named bit-field %0 has zero width">;
-def err_bitfield_width_exceeds_type_size : Error<
-  "size of bit-field %0 (%1 bits) exceeds size of its type (%2 bits)">;
-def err_anon_bitfield_width_exceeds_type_size : Error<
-  "size of anonymous bit-field (%0 bits) exceeds size of its type (%1 bits)">;
+def err_bitfield_width_exceeds_type_width : Error<
+  "width of bit-field %0 (%1 bits) exceeds %select{width|size}2 "
+  "of its type (%3 bit%s3)">;
+def err_anon_bitfield_width_exceeds_type_width : Error<
+  "width of anonymous bit-field (%0 bits) exceeds %select{width|size}1 "
+  "of its type (%2 bit%s2)">;
 def err_incorrect_number_of_vector_initializers : Error<
   "number of elements must be either one or match the size of the vector">;
 
 // Used by C++ which allows bit-fields that are wider than the type.
-def warn_bitfield_width_exceeds_type_size: Warning<
-  "size of bit-field %0 (%1 bits) exceeds the size of its type; value will be "
-  "truncated to %2 bits">;
-def warn_anon_bitfield_width_exceeds_type_size : Warning<
-  "size of anonymous bit-field (%0 bits) exceeds size of its type; value will "
-  "be truncated to %1 bits">;
+def warn_bitfield_width_exceeds_type_width: Warning<
+  "width of bit-field %0 (%1 bits) exceeds the width of its type; value will "
+  "be truncated to %2 bit%s2">, InGroup<BitFieldWidth>;
+def warn_anon_bitfield_width_exceeds_type_width : Warning<
+  "width of anonymous bit-field (%0 bits) exceeds width of its type; value "
+  "will be truncated to %1 bit%s1">, InGroup<BitFieldWidth>;
 
 def warn_missing_braces : Warning<
   "suggest braces around initialization of subobject">,
@@ -5219,6 +5226,8 @@ def err_builtin_func_cast_more_than_one_arg : Error<
   "function-style cast to a builtin type can only take one argument">;
 def err_value_init_for_array_type : Error<
   "array types cannot be value-initialized">;
+def err_value_init_for_function_type : Error<
+  "function types cannot be value-initialized">;
 def warn_format_nonliteral_noargs : Warning<
   "format string is not a string literal (potentially insecure)">,
   InGroup<FormatSecurity>;
@@ -6410,6 +6419,8 @@ let CategoryName = "Inline Assembly Issue" in {
   def err_asm_non_addr_value_in_memory_constraint : Error <
     "reference to a %select{bit-field|vector element|global register variable}0"
     " in asm %select{input|output}1 with a memory constraint '%2'">;
+  def err_asm_input_duplicate_match : Error<
+    "more than one input constraint matches the same output '%0'">;
 
   def warn_asm_label_on_auto_decl : Warning<
     "ignored asm label '%0' on automatic variable">;
@@ -6424,6 +6435,8 @@ let CategoryName = "Inline Assembly Issue" in {
 
   def note_asm_missing_constraint_modifier : Note<
     "use constraint modifier \"%0\"">;
+  def note_asm_input_duplicate_first : Note<
+    "constraint '%0' is already present here">;
 }
 
 let CategoryName = "Semantic Issue" in {
@@ -7094,6 +7107,10 @@ def note_empty_body_on_separate_line : Note<
 
 def err_va_start_used_in_non_variadic_function : Error<
   "'va_start' used in function with fixed args">;
+def err_va_start_used_in_wrong_abi_function : Error<
+  "'va_start' used in %select{System V|Win64}0 ABI function">;
+def err_ms_va_start_used_in_sysv_function : Error<
+  "'__builtin_ms_va_start' used in System V ABI function">;
 def warn_second_parameter_of_va_start_not_last_named_argument : Warning<
   "second parameter of 'va_start' not last named argument">, InGroup<Varargs>;
 def warn_va_start_of_reference_type_is_undefined : Warning<
@@ -7208,6 +7225,8 @@ def err_64_bit_builtin_32_bit_tgt : Error<
   "this builtin is only available on 64-bit targets">;
 def err_ppc_builtin_only_on_pwr7 : Error<
   "this builtin is only valid on POWER7 or later CPUs">;
+def err_x86_builtin_32_bit_tgt : Error<
+  "this builtin is only available on x86-64 targets">;
 
 def err_builtin_longjmp_unsupported : Error<
   "__builtin_longjmp is not supported for the current target">;
@@ -7712,6 +7731,10 @@ def err_omp_unnamed_if_clause : Error<
   "expected %select{|one of}0 %1 directive name modifier%select{|s}0">;
 def note_omp_previous_named_if_clause : Note<
   "previous clause with directive name modifier specified here">;
+def err_omp_ordered_directive_with_param : Error<
+  "'ordered' directive %select{without any clauses|with 'threads' clause}0 cannot be closely nested inside ordered region with specified parameter">;
+def note_omp_ordered_param : Note<
+  "'ordered' clause with specified parameter">;
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {
@@ -7760,8 +7783,8 @@ def err_module_import_in_extern_c : Error<
   "specification">;
 def note_module_import_in_extern_c : Note<
   "extern \"C\" language linkage specification begins here">;
-def err_module_import_not_at_top_level : Error<
-  "import of module '%0' appears within %1">;
+def err_module_import_not_at_top_level_fatal : Error<
+  "import of module '%0' appears within %1">, DefaultFatal;
 def note_module_import_not_at_top_level : Note<"%0 begins here">;
 def err_module_self_import : Error<
   "import of module '%0' appears within same top-level module '%1'">;
@@ -7824,10 +7847,10 @@ def warn_nullability_missing : Warning<
   "type specifier (_Nonnull, _Nullable, or _Null_unspecified)">,
   InGroup<NullabilityCompleteness>;
 
-def err_type_arg_explicit_nullability : Error<
+def err_objc_type_arg_explicit_nullability : Error<
   "type argument %0 cannot explicitly specify nullability">;
 
-def err_type_param_bound_explicit_nullability : Error<
+def err_objc_type_param_bound_explicit_nullability : Error<
   "type parameter %0 bound %1 cannot explicitly specify nullability">;
 
 }
@@ -7839,6 +7862,8 @@ def err_objc_type_param_bound_nonobject : Error<
 
 def err_objc_type_param_bound_missing_pointer : Error<
   "missing '*' in type bound %0 for type parameter %1">;
+def err_objc_type_param_bound_qualified : Error<
+  "type bound %1 for type parameter %0 cannot be qualified with '%2'">;
 
 def err_objc_type_param_redecl : Error<
   "redeclaration of type parameter %0">;
@@ -7873,6 +7898,8 @@ def err_objc_parameterized_forward_class_first : Error<
 
 def err_objc_type_arg_missing_star : Error<
   "type argument %0 must be a pointer (requires a '*')">;
+def err_objc_type_arg_qualified : Error<
+  "type argument %0 cannot be qualified with '%1'">;
 
 def err_objc_type_arg_missing : Error<
   "no type or protocol named %0">;
