@@ -6239,27 +6239,22 @@ public:
       return Feature == "vanilla";
     }
     
-    void getTargetBuiltins(const Builtin::Info *&Records,
-                           unsigned &NumRecords) const override {}
+    ArrayRef<Builtin::Info> getTargetBuiltins() const override { return None; }
     const char *getClobbers() const override {
       return "";
     }
     BuiltinVaListKind getBuiltinVaListKind() const override {
       return TargetInfo::VoidPtrBuiltinVaList;
     }
-    void getGCCRegNames(const char * const *&Names,
-                        unsigned &NumNames) const override {
-      Names = nullptr;
-      NumNames = 0;
+    ArrayRef<const char *> getGCCRegNames() const override {
+      return None;
     }
     bool validateAsmConstraint(const char *&Name,
                                TargetInfo::ConstraintInfo &info) const override {
       return true;
     }
-    void getGCCRegAliases(const GCCRegAlias *&Aliases,
-                          unsigned &NumAliases) const override {
-      Aliases = nullptr;
-      NumAliases = 0;
+    ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override {
+      return None;
     }
   };
   
